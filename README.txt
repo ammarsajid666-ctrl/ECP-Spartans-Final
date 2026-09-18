@@ -72,6 +72,18 @@ admin account:
       a glance (everyone who said Yes), plus a count of who's still
       pending or said no — the same summary style already used inside a
       match's own details popup.
+  3c. Every place a player or admin can mark availability (the Home quick
+      card, the roster inside a match's details, and the admin panel) now
+      shows a small "Saving..." / "✓ Saved" / error line right under the
+      buttons the moment you click. Previously a click that didn't change
+      which button was already selected (e.g. tapping "Yes" again when you
+      were already marked Yes) looked like nothing happened — the buttons
+      only physically change when the status changes, so there was no
+      other feedback that the click was received and saved. This line
+      confirms every click regardless of whether the visual state changes,
+      and shows the actual error message inline if the save fails (instead
+      of only in the small status line near the login/logout button at the
+      top of the page, which is easy to miss if you're scrolled down).
      Note this is
      a UI-level restriction, not a data-level one: because finances and
      contributions are read publicly (same as fixtures) so guests can

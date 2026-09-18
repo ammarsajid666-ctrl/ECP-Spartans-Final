@@ -199,6 +199,9 @@
   .avail-summary b{color:var(--gold);}
   .avail-hint{font-size:11px;color:var(--chalk-dim);margin:8px 0;line-height:1.4;}
   .avail-roster{display:flex;flex-direction:column;gap:6px;}
+  .avail-roster-feedback{font-size:11.5px;margin:6px 0 2px;min-height:14px;}
+  .avail-roster-feedback.ok{color:#8fd19e;}
+  .avail-roster-feedback.err{color:#ef8577;}
   .avail-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03);border:1px solid var(--line);border-radius:8px;padding:8px 10px;}
   .avail-row .nm{flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .avail-pill{display:flex;gap:4px;}
@@ -547,6 +550,7 @@
     <div class="sec-head"><h2>Player Availability</h2><span class="n" id="adminAvailMatchLabel"></span></div>
     <div class="avail-summary" id="adminAvailSummary"></div>
     <div id="adminAvailRoster"></div>
+    <div class="avail-roster-feedback" id="adminAvailFeedback"></div>
   </div>
 
   <div id="teamSection" data-page="admin">
@@ -617,6 +621,7 @@
       <div class="avail-summary" id="availSummary"></div>
       <div class="avail-hint">WhatsApp can't report replies back here — tap a player's status below once they reply (from the poll results or chat). Registered players can also log in and mark their own status directly.</div>
       <div class="avail-roster" id="availRoster"></div>
+      <div class="avail-roster-feedback" id="availRosterFeedback"></div>
     </div>
 
     <div class="msg-section" id="captainMsgSection">
@@ -1841,11 +1846,16 @@
         row.querySelectorAll('.avail-pill button').forEach(btn=>{
           btn.addEventListener('click', async ()=>{
             row.querySelectorAll('.avail-pill button').forEach(b=>b.disabled=true);
+            const fb = $('availRosterFeedback');
+            if(fb){ fb.textContent = 'Saving…'; fb.className = 'avail-roster-feedback'; }
             try{
               await submitAvailability(key, c.name, mine ? (currentUser.email||'') : (c.email||''), btn.dataset.v);
               rec[c.name] = btn.dataset.v;
+              if(fb){ fb.textContent = `✓ Saved ${escapeHtml(c.name)}'s response`; fb.className = 'avail-roster-feedback ok'; }
             }catch(e){
-              setAuthStatus('Could not save availability: ' + (e.message || 'please try again'), 'err');
+              const msg = 'Could not save availability: ' + (e.message || 'please try again');
+              setAuthStatus(msg, 'err');
+              if(fb){ fb.textContent = msg; fb.className = 'avail-roster-feedback err'; }
             }
             renderAvailRoster(m);
           });
@@ -1925,10 +1935,15 @@
         row.querySelectorAll('.avail-pill button').forEach(btn=>{
           btn.addEventListener('click', async ()=>{
             row.querySelectorAll('.avail-pill button').forEach(b=>b.disabled=true);
+            const fb = $('adminAvailFeedback');
+            if(fb){ fb.textContent = 'Saving…'; fb.className = 'avail-roster-feedback'; }
             try{
               await submitAvailability(key, c.name, c.email || '', btn.dataset.v);
+              if(fb){ fb.textContent = `✓ Saved ${escapeHtml(c.name)}'s response`; fb.className = 'avail-roster-feedback ok'; }
             }catch(e){
-              setAuthStatus('Could not save availability: ' + (e.message || 'please try again'), 'err');
+              const msg = 'Could not save availability: ' + (e.message || 'please try again');
+              setAuthStatus(msg, 'err');
+              if(fb){ fb.textContent = msg; fb.className = 'avail-roster-feedback err'; }
             }
             renderAdminAvailability();
           });
