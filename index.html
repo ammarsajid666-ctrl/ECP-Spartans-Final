@@ -134,6 +134,17 @@
   .team-avail-card .tac-names{margin-top:2px;}
   .team-avail-card .tac-names.dim{color:var(--chalk-dim);}
   .team-avail-card .tac-meta{color:var(--chalk-dim);margin-top:4px;}
+  .tac-pdf-btn{flex:0 0 auto;align-self:flex-start;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.03em;background:rgba(255,255,255,.06);color:var(--chalk);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-weight:700;cursor:pointer;white-space:nowrap;}
+  .tac-pdf-btn:hover{background:rgba(255,255,255,.12);}
+  .tac-pdf-btn:disabled{opacity:.55;cursor:default;}
+  .tac-group{margin-top:12px;}
+  .tac-group:first-child{margin-top:0;}
+  .tac-group-label{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+  .tac-group-label.ok{color:#8fd19e;}
+  .tac-group-label.no{color:#ef8577;}
+  .tac-group-label.pending{color:var(--gold);}
+  .tac-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;}
+  .tac-list li{padding:5px 9px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:6px;font-size:12.5px;}
 
   /* Self-service availability (home page, players) */
   .self-avail-card{
@@ -539,6 +550,7 @@
           <div class="tac-label">Next Match</div>
           <div class="tac-desc" id="teamAvailDesc">—</div>
         </div>
+        <button type="button" class="tac-pdf-btn" id="teamAvailPdfBtn">⬇ PDF</button>
       </div>
       <div class="tac-body" id="teamAvailBody"></div>
     </div>
@@ -1396,11 +1408,102 @@
     const key = matchKey(next);
     const rec = await fetchAvailability(key);
     const confirmed = state.contacts.filter(c => rec[c.name] === 'yes').map(c => c.name);
-    const notAvailable = state.contacts.filter(c => rec[c.name] === 'no').length;
-    const pending = state.contacts.filter(c => !rec[c.name] || rec[c.name] === 'pending').length;
-    $('teamAvailBody').innerHTML = confirmed.length
-      ? `<div class="tac-confirmed-label">Confirmed (${confirmed.length}):</div><div class="tac-names">${escapeHtml(confirmed.join(', '))}</div><div class="tac-meta">Not available: ${notAvailable} · Awaiting reply: ${pending}</div>`
-      : `<div class="tac-names dim">No one has confirmed yet.</div><div class="tac-meta">Not available: ${notAvailable} · Awaiting reply: ${pending}</div>`;
+    const notAvailable = state.contacts.filter(c => rec[c.name] === 'no').map(c => c.name);
+    const pendingList = state.contacts.filter(c => !rec[c.name] || rec[c.name] === 'pending').map(c => c.name);
+    const listGroup = (label, names, cls)=> `
+      <div class="tac-group">
+        <div class="tac-group-label ${cls}">${label} (${names.length})</div>
+        ${names.length ? `<ul class="tac-list">${names.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ul>` : `<div class="tac-names dim">None</div>`}
+      </div>`;
+    let openNote = '';
+    if(!availabilityWindowOpen(next)){
+      openNote = `<div class="tac-meta" style="margin-bottom:10px;">Availability marking opens ${availabilityOpensLabel(next)} (${AVAIL_WINDOW_DAYS} days before the match).</div>`;
+    }
+    $('teamAvailBody').innerHTML = openNote
+      + listGroup('Confirmed', confirmed, 'ok')
+      + listGroup('Not available', notAvailable, 'no')
+      + listGroup('Awaiting reply', pendingList, 'pending');
+  }
+  async function generateAvailabilityPdf(next){
+    if(!window.jspdf || !window.jspdf.jsPDF){ alert('The PDF tool is still loading. Please try again in a moment.'); return; }
+    const btn = $('teamAvailPdfBtn');
+    const originalLabel = btn ? btn.textContent : '';
+    if(btn){ btn.disabled = true; btn.textContent = 'Building…'; }
+    try{
+      const key = matchKey(next);
+      const rec = await fetchAvailability(key);
+      const confirmed = state.contacts.filter(c => rec[c.name] === 'yes').map(c => c.name);
+      const notAvailable = state.contacts.filter(c => rec[c.name] === 'no').map(c => c.name);
+      const pendingList = state.contacts.filter(c => !rec[c.name] || rec[c.name] === 'pending').map(c => c.name);
+
+      const {jsPDF} = window.jspdf;
+      const doc = new jsPDF({unit:'mm', format:'a4'});
+      const d = new Date(next.date+'T00:00:00');
+      const dateStr = d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      let y = 0;
+      const pageHeader = ()=>{
+        doc.setFillColor(15,32,25); doc.rect(0,0,210,297,'F');
+        doc.setTextColor(201,162,39); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+        doc.text('ECP SPARTANS',15,16);
+        doc.setTextColor(241,238,226); doc.setFontSize(19); doc.text('Match Availability',15,27);
+        doc.setTextColor(201,196,178); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+        doc.text(`vs ${next.opponent || 'TBD'}  |  ${dateStr}${next.venue || next.location ? '  |  '+(next.venue||next.location) : ''}`,15,34);
+        y = 45;
+      };
+      const ensureRoom = (needed)=>{ if(y + needed > 280){ doc.addPage(); pageHeader(); } };
+      const sectionTitle = (t)=>{
+        ensureRoom(16);
+        doc.setTextColor(201,162,39); doc.setFont('helvetica','bold'); doc.setFontSize(12.5);
+        doc.text(t.toUpperCase(),15,y); y += 3;
+        doc.setDrawColor(73,95,81); doc.line(15,y,195,y); y += 8;
+      };
+      const nameRow = (i, name)=>{
+        ensureRoom(8);
+        doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(241,238,226);
+        doc.text(`${i}. ${name}`,15,y);
+        doc.setDrawColor(60,75,66); doc.line(15,y+2,195,y+2);
+        y += 8;
+      };
+      const emptyNote = (text)=>{
+        ensureRoom(8);
+        doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(201,196,178);
+        doc.text(text,15,y); y += 8;
+      };
+
+      pageHeader();
+
+      sectionTitle(`Confirmed (${confirmed.length})`);
+      if(confirmed.length) confirmed.forEach((n,i)=>nameRow(i+1,n));
+      else emptyNote('No one has confirmed yet.');
+      y += 4;
+
+      sectionTitle(`Not Available (${notAvailable.length})`);
+      if(notAvailable.length) notAvailable.forEach((n,i)=>nameRow(i+1,n));
+      else emptyNote('No one has marked unavailable.');
+      y += 4;
+
+      sectionTitle(`Awaiting Reply (${pendingList.length})`);
+      if(pendingList.length) pendingList.forEach((n,i)=>nameRow(i+1,n));
+      else emptyNote('Everyone has responded.');
+
+      doc.save('ECP-Spartans-availability-'+next.date+'.pdf');
+    }catch(e){
+      alert('Could not build the availability list — ' + e.message);
+    } finally {
+      if(btn){ btn.disabled = false; btn.textContent = originalLabel; }
+    }
+  }
+  const teamAvailPdfBtnEl = $('teamAvailPdfBtn');
+  if(teamAvailPdfBtnEl){
+    teamAvailPdfBtnEl.addEventListener('click', ()=>{
+      const today = new Date(); today.setHours(0,0,0,0);
+      const upcoming = state.matches
+        .filter(m => { const d=new Date(m.date+'T00:00:00'); return !isNaN(d) && d >= today; })
+        .sort((a,b)=>a.date.localeCompare(b.date));
+      const next = upcoming[0];
+      if(!next) return;
+      generateAvailabilityPdf(next);
+    });
   }
   async function updateSelfAvailCard(next){
     const card = $('selfAvailCard');
@@ -1412,14 +1515,20 @@
     const d = new Date(next.date+'T00:00:00');
     $('selfAvailDesc').textContent = `vs ${next.opponent || 'TBD'} · ${d.toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'})}${next.time ? ' · '+next.time : ''}`;
     card.style.display = 'block';
+    const windowOpen = availabilityWindowOpen(next);
     const key = matchKey(next);
     const rec = await fetchAvailability(key);
     if(!isPlayer || !currentPlayerContact) return;
     const status = rec[currentPlayerContact.name] || 'pending';
     document.querySelectorAll('#selfAvailActions .avail-quick-btn').forEach(btn=>{
       btn.classList.toggle('active', btn.dataset.v === status);
-      btn.disabled = false;
+      btn.disabled = !windowOpen;
     });
+    const fb = $('selfAvailFeedback');
+    if(fb){
+      if(!windowOpen){ fb.textContent = `Marking opens ${availabilityOpensLabel(next)} (${AVAIL_WINDOW_DAYS} days before the match).`; fb.className = 'sac-feedback'; }
+      else if(fb.textContent.indexOf('Marking opens') !== -1){ fb.textContent = ''; fb.className = 'sac-feedback'; }
+    }
   }
   document.querySelectorAll('#selfAvailActions .avail-quick-btn').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -1429,7 +1538,7 @@
         .filter(m => { const d=new Date(m.date+'T00:00:00'); return !isNaN(d) && d >= today; })
         .sort((a,b)=>a.date.localeCompare(b.date));
       const next = upcoming[0];
-      if(!next) return;
+      if(!next || !availabilityWindowOpen(next)) return;
       const actionBtns = document.querySelectorAll('#selfAvailActions .avail-quick-btn');
       actionBtns.forEach(b=>b.disabled=true);
       const fb = $('selfAvailFeedback');
@@ -1905,6 +2014,19 @@
 
   function opponentKey(opponent){ return String(opponent||'').trim().toLowerCase(); }
   function matchKey(m){ return m.date + '|' + opponentKey(m.opponent); }
+  const AVAIL_WINDOW_DAYS = 6;
+  function availabilityWindowOpen(m){
+    const d = new Date(m.date+'T00:00:00');
+    if(isNaN(d)) return true;
+    const opens = new Date(d); opens.setDate(opens.getDate() - AVAIL_WINDOW_DAYS);
+    const today = new Date(); today.setHours(0,0,0,0);
+    return today >= opens;
+  }
+  function availabilityOpensLabel(m){
+    const d = new Date(m.date+'T00:00:00');
+    const opens = new Date(d); opens.setDate(opens.getDate() - AVAIL_WINDOW_DAYS);
+    return opens.toLocaleDateString('en-US',{day:'numeric',month:'short'});
+  }
 
   function availabilityMessageText(m){
     const dt = new Date(m.date+'T00:00:00');
@@ -2070,11 +2192,12 @@
     state.contacts.forEach(c=>{
       const status = rec[c.name] || 'pending';
       const mine = isPlayer && currentPlayerContact && currentPlayerContact.name === c.name;
-      const canEdit = isAdmin || mine;
+      const windowOpen = availabilityWindowOpen(m);
+      const canEdit = isAdmin || (mine && windowOpen);
       const row = document.createElement('div');
       row.className = 'avail-row';
       row.innerHTML = `
-        <div class="nm">${escapeHtml(c.name)}${mine ? ' <span style="color:var(--gold);font-size:10.5px;">(you)</span>' : ''}</div>
+        <div class="nm">${escapeHtml(c.name)}${mine ? ' <span style="color:var(--gold);font-size:10.5px;">(you)</span>' : ''}${mine && !windowOpen ? ` <span style="color:var(--chalk-dim);font-size:10.5px;">(opens ${availabilityOpensLabel(m)})</span>` : ''}</div>
         <div class="avail-pill">
           <button class="yes ${status==='yes'?'active':''}" data-v="yes"${canEdit?'':' disabled'}>Yes</button>
           <button class="no ${status==='no'?'active':''}" data-v="no"${canEdit?'':' disabled'}>No</button>

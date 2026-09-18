@@ -1671,6 +1671,19 @@
 
   function opponentKey(opponent){ return String(opponent||'').trim().toLowerCase(); }
   function matchKey(m){ return m.date + '|' + opponentKey(m.opponent); }
+  const AVAIL_WINDOW_DAYS = 6;
+  function availabilityWindowOpen(m){
+    const d = new Date(m.date+'T00:00:00');
+    if(isNaN(d)) return true;
+    const opens = new Date(d); opens.setDate(opens.getDate() - AVAIL_WINDOW_DAYS);
+    const today = new Date(); today.setHours(0,0,0,0);
+    return today >= opens;
+  }
+  function availabilityOpensLabel(m){
+    const d = new Date(m.date+'T00:00:00');
+    const opens = new Date(d); opens.setDate(opens.getDate() - AVAIL_WINDOW_DAYS);
+    return opens.toLocaleDateString('en-US',{day:'numeric',month:'short'});
+  }
 
   function availabilityMessageText(m){
     const dt = new Date(m.date+'T00:00:00');
@@ -1836,11 +1849,12 @@
     state.contacts.forEach(c=>{
       const status = rec[c.name] || 'pending';
       const mine = isPlayer && currentPlayerContact && currentPlayerContact.name === c.name;
-      const canEdit = isAdmin || mine;
+      const windowOpen = availabilityWindowOpen(m);
+      const canEdit = isAdmin || (mine && windowOpen);
       const row = document.createElement('div');
       row.className = 'avail-row';
       row.innerHTML = `
-        <div class="nm">${escapeHtml(c.name)}${mine ? ' <span style="color:var(--gold);font-size:10.5px;">(you)</span>' : ''}</div>
+        <div class="nm">${escapeHtml(c.name)}${mine ? ' <span style="color:var(--gold);font-size:10.5px;">(you)</span>' : ''}${mine && !windowOpen ? ` <span style="color:var(--chalk-dim);font-size:10.5px;">(opens ${availabilityOpensLabel(m)})</span>` : ''}</div>
         <div class="avail-pill">
           <button class="yes ${status==='yes'?'active':''}" data-v="yes"${canEdit?'':' disabled'}>Yes</button>
           <button class="no ${status==='no'?'active':''}" data-v="no"${canEdit?'':' disabled'}>No</button>

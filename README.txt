@@ -56,13 +56,16 @@ admin account:
      before — this restriction only applies to logged-in player accounts.
   3a. Home now opens with a "Next Match" card (index.html only, visible to
       everyone — admin, players, and guests) right at the top of Club
-      Overview: the match details (opponent, date) on top, and directly
-      under it the list of players who've confirmed Yes for that match,
-      plus a count of who's not available and who hasn't replied yet.
-      It's read-only here — a quick "who's actually playing" summary
-      that updates itself the moment anyone marks their availability from
-      any of the three places below (the Home quick card, a match's own
-      details, or the Admin panel), no page reload needed.
+      Overview: the match details (opponent, date) on top, and below that
+      three list-wise groups — Confirmed, Not available, Awaiting reply —
+      each showing the actual player names, one per line, not just a
+      count. It's read-only here — a quick "who's actually playing"
+      summary that updates itself the moment anyone marks their
+      availability from any of the three places below (the Home quick
+      card, a match's own details, or the Admin panel), no page reload
+      needed. A "⬇ PDF" button in the card's top-right exports this same
+      breakdown (match details + all three name lists) as a downloadable
+      PDF, styled to match the Season Summary report.
   3a-i. Right under that, players (only) also get a "Your Availability"
       card, showing the same next match with three quick buttons (Yes,
       I'm in / Can't make it / Not sure yet) — a shortcut so a player
@@ -71,6 +74,15 @@ admin account:
       the roster inside a match's details, so marking from either place
       stays in sync, and also updates the Team confirmed-names card above
       it right away.
+  3a-ii. Availability marking opens 6 days before each match, not before.
+      Until then, a player's own Yes/No/Not-sure buttons — on the Home
+      quick card and on their own row inside a match's details — stay
+      disabled, with a note showing the date marking opens (match date
+      minus 6 days). Admin is never restricted by this and can mark for
+      any player at any time, from the Admin panel or a match's details.
+      This only limits who can WRITE early; the Home "Next Match" card
+      and the Admin panel still show the live (mostly "awaiting reply")
+      status for a match any time it's the next upcoming one.
   3b. The Admin page (admin.html) now has a "Player Availability" panel
       above the Team Sheet, showing the whole roster's Yes/No/pending
       status for the next upcoming match without needing to open that
