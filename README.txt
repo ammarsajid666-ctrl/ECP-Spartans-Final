@@ -3,7 +3,9 @@ ECP Spartans multi-page website
 Upload this entire folder to Vercel. index.html is the Home page.
 Pages: fixtures.html, finances.html, contributions.html, team-stats.html,
 player-stats.html, admin.html.
-Hero image: ecp-spartans-hero.jpeg
+Hero image: ecp-spartans-hero.jpeg (now included in this delivery — upload it
+to GitHub alongside the HTML files, same folder, so the Home page header
+photo stops showing a broken image / 404).
 
 Team Stats and Player Stats were fixed to read the fixture schedule from
 the same Supabase key ('matches') that Fixtures actually saves to — they
