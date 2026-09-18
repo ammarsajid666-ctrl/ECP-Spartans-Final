@@ -122,6 +122,19 @@
   @media(max-width:760px){.dashboard-grid{grid-template-columns:repeat(2,1fr);}.home-quick{grid-template-columns:1fr;}}
   @media(max-width:480px){.dashboard-grid{grid-template-columns:1fr;}}
 
+  /* Team availability summary (home page, everyone) */
+  .team-avail-card{background:linear-gradient(145deg,rgba(201,162,39,0.14),rgba(201,162,39,0.05));border:1px solid rgba(201,162,39,0.35);border-radius:var(--radius);padding:16px;}
+  .team-avail-card .tac-head{display:flex;align-items:center;gap:14px;}
+  .team-avail-card .tac-icon{flex:0 0 auto;width:38px;height:38px;border-radius:50%;background:var(--gold);color:var(--pitch-deep);display:flex;align-items:center;justify-content:center;font-size:17px;}
+  .team-avail-card .tac-info{flex:1;min-width:0;}
+  .team-avail-card .tac-label{font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;color:var(--chalk);}
+  .team-avail-card .tac-desc{font-size:12px;color:var(--chalk-dim);margin-top:3px;line-height:1.4;}
+  .team-avail-card .tac-body{margin-top:12px;font-size:12.5px;line-height:1.5;}
+  .team-avail-card .tac-confirmed-label{color:var(--gold);font-weight:700;}
+  .team-avail-card .tac-names{margin-top:2px;}
+  .team-avail-card .tac-names.dim{color:var(--chalk-dim);}
+  .team-avail-card .tac-meta{color:var(--chalk-dim);margin-top:4px;}
+
   /* Self-service availability (home page, players) */
   .self-avail-card{
     margin-top:12px;
@@ -518,6 +531,17 @@
 
   <section class="home-dashboard" data-page="home" aria-label="Club overview">
     <div class="sec-head"><h2>Club Overview</h2><span class="n">Live club summary</span></div>
+
+    <div class="team-avail-card" id="teamAvailCard" style="display:none;">
+      <div class="tac-head">
+        <div class="tac-icon">🏏</div>
+        <div class="tac-info">
+          <div class="tac-label">Next Match</div>
+          <div class="tac-desc" id="teamAvailDesc">—</div>
+        </div>
+      </div>
+      <div class="tac-body" id="teamAvailBody"></div>
+    </div>
 
     <div class="self-avail-card" id="selfAvailCard" style="display:none;">
       <div class="sac-head">
@@ -1345,6 +1369,7 @@
       nextMeta.textContent='Add fixtures from the Fixtures page';
     }
     updateSelfAvailCard(next);
+    updateTeamAvailCard(next);
     let expenses=0;
     Object.values(state.expenses).forEach(items=>{ if(Array.isArray(items)) items.forEach(i=>expenses+=Number(i.amount||0)); });
     let expected=0, received=0;
@@ -1358,6 +1383,25 @@
     $('homeBalanceMeta').textContent=balance>=0?'Contributions received minus expenses':`${fmtMoney(Math.abs(balance))} more needed to cover expenses`;
   }
 
+  async function updateTeamAvailCard(next){
+    const card = $('teamAvailCard');
+    if(!card) return;
+    if(!next || !state.contacts.length){
+      card.style.display = 'none';
+      return;
+    }
+    const d = new Date(next.date+'T00:00:00');
+    $('teamAvailDesc').textContent = `vs ${next.opponent || 'TBD'} · ${d.toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'})}${next.time ? ' · '+next.time : ''}`;
+    card.style.display = 'block';
+    const key = matchKey(next);
+    const rec = await fetchAvailability(key);
+    const confirmed = state.contacts.filter(c => rec[c.name] === 'yes').map(c => c.name);
+    const notAvailable = state.contacts.filter(c => rec[c.name] === 'no').length;
+    const pending = state.contacts.filter(c => !rec[c.name] || rec[c.name] === 'pending').length;
+    $('teamAvailBody').innerHTML = confirmed.length
+      ? `<div class="tac-confirmed-label">Confirmed (${confirmed.length}):</div><div class="tac-names">${escapeHtml(confirmed.join(', '))}</div><div class="tac-meta">Not available: ${notAvailable} · Awaiting reply: ${pending}</div>`
+      : `<div class="tac-names dim">No one has confirmed yet.</div><div class="tac-meta">Not available: ${notAvailable} · Awaiting reply: ${pending}</div>`;
+  }
   async function updateSelfAvailCard(next){
     const card = $('selfAvailCard');
     if(!card) return;
@@ -1399,6 +1443,7 @@
         if(fb){ fb.textContent = msg; fb.className = 'sac-feedback err'; }
       }
       await updateSelfAvailCard(next);
+      await updateTeamAvailCard(next);
       if(activeMatch && matchKey(activeMatch) === matchKey(next)){
         renderAvailRoster(activeMatch);
       }
@@ -2045,6 +2090,7 @@
               await submitAvailability(key, c.name, mine ? (currentUser.email||'') : (c.email||''), btn.dataset.v);
               rec[c.name] = btn.dataset.v;
               if(fb){ fb.textContent = `✓ Saved ${escapeHtml(c.name)}'s response`; fb.className = 'avail-roster-feedback ok'; }
+              if(typeof updateTeamAvailCard === 'function') updateTeamAvailCard(m);
             }catch(e){
               const msg = 'Could not save availability: ' + (e.message || 'please try again');
               setAuthStatus(msg, 'err');
@@ -2133,6 +2179,7 @@
             try{
               await submitAvailability(key, c.name, c.email || '', btn.dataset.v);
               if(fb){ fb.textContent = `✓ Saved ${escapeHtml(c.name)}'s response`; fb.className = 'avail-roster-feedback ok'; }
+              if(typeof updateTeamAvailCard === 'function') updateTeamAvailCard(next);
             }catch(e){
               const msg = 'Could not save availability: ' + (e.message || 'please try again');
               setAuthStatus(msg, 'err');

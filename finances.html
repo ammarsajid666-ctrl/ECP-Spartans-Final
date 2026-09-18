@@ -1852,6 +1852,7 @@
               await submitAvailability(key, c.name, mine ? (currentUser.email||'') : (c.email||''), btn.dataset.v);
               rec[c.name] = btn.dataset.v;
               if(fb){ fb.textContent = `✓ Saved ${escapeHtml(c.name)}'s response`; fb.className = 'avail-roster-feedback ok'; }
+              if(typeof updateTeamAvailCard === 'function') updateTeamAvailCard(m);
             }catch(e){
               const msg = 'Could not save availability: ' + (e.message || 'please try again');
               setAuthStatus(msg, 'err');
@@ -1940,6 +1941,7 @@
             try{
               await submitAvailability(key, c.name, c.email || '', btn.dataset.v);
               if(fb){ fb.textContent = `✓ Saved ${escapeHtml(c.name)}'s response`; fb.className = 'avail-roster-feedback ok'; }
+              if(typeof updateTeamAvailCard === 'function') updateTeamAvailCard(next);
             }catch(e){
               const msg = 'Could not save availability: ' + (e.message || 'please try again');
               setAuthStatus(msg, 'err');

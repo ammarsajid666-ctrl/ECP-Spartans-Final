@@ -54,13 +54,23 @@ admin account:
      sees the match info and the availability roster there, nothing else.
      Guests still see fixtures, finances, and contributions, same as
      before — this restriction only applies to logged-in player accounts.
-  3a. Home also has a "Your Availability" card (index.html only, players
-      only) right under Club Overview, showing the next upcoming match
-      with three quick buttons (Yes, I'm in / Can't make it / Not sure
-      yet) — a shortcut so a player doesn't have to open the match's
-      full details just to mark themselves. It writes to the same
-      availability_responses table as the roster inside a match's
-      details, so marking from either place stays in sync.
+  3a. Home now opens with a "Next Match" card (index.html only, visible to
+      everyone — admin, players, and guests) right at the top of Club
+      Overview: the match details (opponent, date) on top, and directly
+      under it the list of players who've confirmed Yes for that match,
+      plus a count of who's not available and who hasn't replied yet.
+      It's read-only here — a quick "who's actually playing" summary
+      that updates itself the moment anyone marks their availability from
+      any of the three places below (the Home quick card, a match's own
+      details, or the Admin panel), no page reload needed.
+  3a-i. Right under that, players (only) also get a "Your Availability"
+      card, showing the same next match with three quick buttons (Yes,
+      I'm in / Can't make it / Not sure yet) — a shortcut so a player
+      doesn't have to open the match's full details just to mark
+      themselves. It writes to the same availability_responses table as
+      the roster inside a match's details, so marking from either place
+      stays in sync, and also updates the Team confirmed-names card above
+      it right away.
   3b. The Admin page (admin.html) now has a "Player Availability" panel
       above the Team Sheet, showing the whole roster's Yes/No/pending
       status for the next upcoming match without needing to open that
